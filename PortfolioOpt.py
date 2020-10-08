@@ -21,7 +21,7 @@ class PortfolioOpt:
             except:
                 tickers_skipped += 1
                 continue
-        print(tickers_skipped)
+        # print(tickers_skipped)
 
 
         self.start = start
