@@ -268,10 +268,9 @@ class PortfolioOpt:
 
             print("\n" + "#"*(self.max_str+10))
             print(f"Shares to buy (${amount})")
-            dol_inv = opt_results['x'] * amount
-            last_price = self.data.iloc[-1].values
+            dol_inv = opt_results['x'].round(4) * amount
+            last_price = self.data.iloc[-1].values.round(2)
             shares = np.floor(dol_inv/last_price)
-
 
             for i, (k,v) in zip(shares, self.tickers.items()):
                 space = self.max_str - len(f"{v} ({k}):")
@@ -286,7 +285,7 @@ class PortfolioOpt:
 
             print("\n" + "#"*(self.max_str+10))
             print(f"Dollars to buy (${amount})")
-            dol_inv = opt_results['x'] * amount
+            dol_inv = opt_results['x'].round(4) * amount
 
             for i, (k,v) in zip(dol_inv.round(2), self.tickers.items()):
                 space = self.max_str - len(f"{v} ({k}):")
@@ -305,12 +304,89 @@ class PortfolioOpt:
 
 
 
+
+    def save_results(self, file_name, opt_results, print_zeros=False, percentages=True, shares=True, dollars=True, amount_needed=True, amount=1000, beta_target=None):
+        """
+        A function to print the results of the optimization.
+        """
+
+        f = open(file_name, 'w')
+
+        f.write(f"Data start:" + " "*(self.max_str-len("Data start:")) + f"{self.start}\n")
+        f.write(f"Data end:" + " "*(self.max_str-len("Data end:")) + f"{self.end}\n")
+
+        f.write("\nPerformance (Annualized)\n")
+        f.write(f"Expected Returns:" + " "*(self.max_str-len("Expected Returns:")) + f"{round(self._get_ret_vol_sr(opt_results['x'])[0],3)}\n")
+        f.write(f"Vol:" + " "*(self.max_str-len("Vol:")) + f"{round(self._get_ret_vol_sr(opt_results['x'])[1],3)}\n")
+        f.write(f"Sharpe ratio:" + " "*(self.max_str-len("Sharpe ratio:")) + f"{round(self._get_ret_vol_sr(opt_results['x'])[2],3)}\n")
+        if beta_target is not None:
+            f.write(f"Beta Target:" + " "*(self.max_str-len("Beta Target:")) + f"{beta_target}\n")
+
+        f.write(f"\nBenchmark ({self.benchmark})\n")
+        f.write(f"Expected Returns:" + " "*(self.max_str-len("Expected Returns:")) + f"{self.bench_er}\n")
+        f.write(f"Vol:" + " "*(self.max_str-len(f"Vol:")) + f"{self.bench_vol}\n")
+        f.write(f"Sharpe ratio:" + " "*(self.max_str-len(f"Sharpe ratio:")) + f"{self.bench_sharpe}\n")
+        f.write(f"Real returns:" + " "*(self.max_str-len("Real returns:")) + f"{(np.exp(self.bench_ret.sum()) - 1).round(3)}\n")
+        f.write(f"Real Sharpe ratio:" + " "*(self.max_str-len("Real Sharpe ratio:")) + f"{((np.exp(self.bench_ret.sum()) - 1)/self.bench_vol).round(3)}\n")
+
+        if percentages:
+            f.write("\n" + "#"*(self.max_str+10) + "\n")
+            f.write("Optimal Percentages\n")
+            for i, (k, v) in zip(opt_results['x'], self.tickers.items()):
+                space = self.max_str - len(f"{v} ({k}):")
+
+                value = round(i*100, 2)
+                if value == 0 and not print_zeros:
+                    continue
+
+                f.write(f"{v} ({k}):" + " "*space + f"{value}\n")
+
+        if shares:
+
+            f.write("\n" + "#"*(self.max_str+10) + "\n")
+            f.write(f"Shares to buy (${amount})\n")
+            dol_inv = opt_results['x'].round(4) * amount
+            last_price = self.data.iloc[-1].values.round(2)
+            shares = np.floor(dol_inv/last_price)
+
+            for i, (k,v) in zip(shares, self.tickers.items()):
+                space = self.max_str - len(f"{v} ({k}):")
+
+                if i == 0 and not print_zeros:
+                    continue
+
+                f.write(f"{v} ({k}):" + " "*space + f"{i}\n")
+
+
+        if dollars:
+
+            f.write("\n" + "#"*(self.max_str+10) + "\n")
+            f.write(f"Dollars to buy (${amount})\n")
+            dol_inv = opt_results['x'].round(4) * amount
+
+            for i, (k,v) in zip(dol_inv.round(2), self.tickers.items()):
+                space = self.max_str - len(f"{v} ({k}):")
+
+                if i == 0 and not print_zeros:
+                    continue
+
+                f.write(f"{v} ({k}):" + " "*space + f"{i}\n")
+
+
+        if amount_needed:
+
+            f.write("\n" + "#"*(self.max_str+10) + "\n")
+            space = self.max_str - len("Amount needed:")
+            f.write("Amount needed:" + " "*space + f"${self.amount_needed(opt_results)}\n")
+
+
+
 if __name__ == "__main__":
     from dateutil.relativedelta import relativedelta
 
     # tickers = ['XAR', 'KBE', 'XBI', 'KCE', 'XHE', 'XHS', 'XHB', 'KIE', 'XWEB', 'XME', 'XES', 'XOP', 'XPH', 'KRE', 'XRT', 'XSD', 'XSW', 'XTL', 'XTN']
-    tickers = ['XLC', 'XLY', 'XLP', 'XLE', 'XLF', 'XLV', 'XLI', 'XLB', 'XLRE', 'XLK', 'XLU']
-    # tickers = ["FB", "AAPL", "AMZN", "NFLX", "GOOG"]
+    # tickers = ['XLC', 'XLY', 'XLP', 'XLE', 'XLF', 'XLV', 'XLI', 'XLB', 'XLRE', 'XLK', 'XLU']
+    tickers = ["FB", "AAPL", "AMZN", "NFLX", "GOOG"]
     # ssmif = pd.read_csv("ssmif_port.csv", header=None)
     # tickers = ssmif[0].values
 
@@ -318,23 +394,23 @@ if __name__ == "__main__":
     # tickers = spdr['Symbol'].unique()
 
 
-    start = str(date.today() - relativedelta(years=10))
+    start = str(date.today() - relativedelta(years=2))
     opt = PortfolioOpt(tickers, start=start)
-    t = opt.optimize_portfolio(opt_for="returns", print_results=False)
+    t = opt.optimize_portfolio(print_results=False)
 
-    opt.print_results(t, amount=opt.amount_needed(t))
+    opt.save_results("results.txt", t, amount=opt.amount_needed(t))
 
-    print("\n"*3)
-
-    sectors = []
-    for i in range(len(tickers)):
-        if t['x'].round(2)[i] != 0:
-            sectors.append(tickers[i])
-
-    spdr = pd.read_csv("spdr_holdings-all.csv")
-    tickers = spdr[spdr["Index"].isin(sectors)]['Symbol'].unique()
-
-    opt2 = PortfolioOpt(tickers, start=start)
-    t = opt2.optimize_portfolio(opt_for="returns", print_results=False)
-    opt2.print_results(t, amount=opt.amount_needed(t))
+    # print("\n"*3)
+    #
+    # sectors = []
+    # for i in range(len(tickers)):
+    #     if t['x'].round(2)[i] != 0:
+    #         sectors.append(tickers[i])
+    #
+    # spdr = pd.read_csv("spdr_holdings-all.csv")
+    # tickers = spdr[spdr["Index"].isin(sectors)]['Symbol'].unique()
+    #
+    # opt2 = PortfolioOpt(tickers, start=start)
+    # t = opt2.optimize_portfolio(print_results=False)
+    # opt2.print_results(t, amount=opt2.amount_needed(t))
     # opt.print_results(t, amount=180)

@@ -1,0 +1,32 @@
+Data start:              2018-10-10
+Data end:                2020-10-09
+
+Performance (Annualized)
+Expected Returns:        0.371
+Vol:                     0.35
+Sharpe ratio:            1.059
+
+Benchmark (^GSPC)
+Expected Returns:        0.111
+Vol:                     0.268
+Sharpe ratio:            0.414
+Real returns:            0.248
+Real Sharpe ratio:       0.926
+
+###################################
+Optimal Percentages
+Apple Inc. (AAPL):       66.94
+Amazon.com, Inc. (AMZN): 33.06
+
+###################################
+Shares to buy ($10116.21)
+Apple Inc. (AAPL):       57.0
+Amazon.com, Inc. (AMZN): 1.0
+
+###################################
+Dollars to buy ($10116.21)
+Apple Inc. (AAPL):       6771.79
+Amazon.com, Inc. (AMZN): 3344.42
+
+###################################
+Amount needed:           $10116.21
