@@ -385,8 +385,8 @@ if __name__ == "__main__":
     from dateutil.relativedelta import relativedelta
 
     # tickers = ['XAR', 'KBE', 'XBI', 'KCE', 'XHE', 'XHS', 'XHB', 'KIE', 'XWEB', 'XME', 'XES', 'XOP', 'XPH', 'KRE', 'XRT', 'XSD', 'XSW', 'XTL', 'XTN']
-    # tickers = ['XLC', 'XLY', 'XLP', 'XLE', 'XLF', 'XLV', 'XLI', 'XLB', 'XLRE', 'XLK', 'XLU']
-    tickers = ["FB", "AAPL", "AMZN", "NFLX", "GOOG"]
+    tickers = ['XLC', 'XLY', 'XLP', 'XLE', 'XLF', 'XLV', 'XLI', 'XLB', 'XLRE', 'XLK', 'XLU']
+    # tickers = ["FB", "AAPL", "AMZN", "NFLX", "GOOG"]
     # ssmif = pd.read_csv("ssmif_port.csv", header=None)
     # tickers = ssmif[0].values
 
@@ -398,19 +398,20 @@ if __name__ == "__main__":
     opt = PortfolioOpt(tickers, start=start)
     t = opt.optimize_portfolio(print_results=False)
 
-    opt.save_results("results.txt", t, amount=opt.amount_needed(t))
+    # opt.save_results("results.txt", t, amount=3000)
 
-    # print("\n"*3)
-    #
-    # sectors = []
-    # for i in range(len(tickers)):
-    #     if t['x'].round(2)[i] != 0:
-    #         sectors.append(tickers[i])
-    #
-    # spdr = pd.read_csv("spdr_holdings-all.csv")
-    # tickers = spdr[spdr["Index"].isin(sectors)]['Symbol'].unique()
-    #
-    # opt2 = PortfolioOpt(tickers, start=start)
-    # t = opt2.optimize_portfolio(print_results=False)
-    # opt2.print_results(t, amount=opt2.amount_needed(t))
+    print("\n"*3)
+
+    sectors = []
+    for i in range(len(tickers)):
+        if t['x'].round(2)[i] != 0:
+            sectors.append(tickers[i])
+
+    spdr = pd.read_csv("spdr_holdings-all.csv")
+    tickers = spdr[spdr["Index"].isin(sectors)]['Symbol'].unique()
+
+    opt2 = PortfolioOpt(tickers, start=start)
+    t = opt2.optimize_portfolio(print_results=False)
+    opt2.print_results(t, amount=3000)
+    opt2.save_results("2year_sector_comps_sharpe.txt", t, amount=3000)
     # opt.print_results(t, amount=180)
