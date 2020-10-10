@@ -35,16 +35,20 @@ class PortfolioOpt:
         self.max_str = max(str_lengths) + 1
 
         self.data = pdr.get_data_yahoo(list(self.tickers.keys()), start=self.start, end=self.end)["Adj Close"]
-        self.log_ret = np.log(self.data/self.data.shift(1))
+        # self.ret = self.data.pct_change()
+        self.ret = np.log(self.data/self.data.shift(1))
 
         self.benchmark = benchmark
         self.bench = pdr.get_data_yahoo(self.benchmark, start=self.start, end=self.end)["Adj Close"]
+        # self.bench_ret = self.bench.pct_change()
         self.bench_ret = np.log(self.bench/self.bench.shift(1))
         self.bench_ret.rename(self.benchmark, axis=1, inplace=True)
 
         self.bench_er = (self.bench_ret.mean() * 252).round(3)
         self.bench_vol = (self.bench_ret.std() * np.sqrt(252)).round(3)
         self.bench_sharpe = (self.bench_er/self.bench_vol).round(3)
+
+        print(self.bench_ret.sum(), np.exp(self.bench_ret.sum()) - 1)
 
     def refresh_data(self, start=None, end=None):
 
@@ -57,12 +61,18 @@ class PortfolioOpt:
             self.end = str(date.today() - timedelta(days=1))
 
         self.data = pdr.get_data_yahoo(list(self.tickers.keys()), start=self.start, end=self.end)["Adj Close"]
-        self.log_ret = np.log(self.data/self.data.shift(1))
+        self.ret = np.log(self.data/self.data.shift(1))
+        # self.ret = self.bench.pct_change()
 
 
         self.bench = pdr.get_data_yahoo(self.benchmark, start=self.start, end=self.end)["Adj Close"]
+        # self.bench_ret = self.bench.pct_change()
         self.bench_ret = np.log(self.bench/self.bench.shift(1))
         self.bench_ret.rename(self.benchmark, axis=1, inplace=True)
+
+        self.bench_er = (self.bench_ret.mean() * 252).round(3)
+        self.bench_vol = (self.bench_ret.std() * np.sqrt(252)).round(3)
+        self.bench_sharpe = (self.bench_er/self.bench_vol).round(3)
 
 
     def _get_ret_vol_sr(self, weights):
@@ -70,8 +80,8 @@ class PortfolioOpt:
         Calculates the returns, volatility, and sharpe of a portfolio with given weights
         """
         weights = np.array(weights)
-        ret = np.sum(self.log_ret.mean() * weights) * 252
-        vol = np.sqrt(np.dot(weights.T, np.dot(self.log_ret.cov()*252, weights)))
+        ret = np.sum(self.ret.mean() * weights) * 252
+        vol = np.sqrt(np.dot(weights.T, np.dot(self.ret.cov()*252, weights)))
         sr = ret/vol
         return np.array([ret, vol, sr])
 
@@ -172,7 +182,7 @@ class PortfolioOpt:
         """
         Optimize portfolio buy maximizing sharpe, maximizing returns, or minimizing volatility with a target beta with the benchmark
         """
-        t = pd.concat([self.bench_ret, self.log_ret], axis=1)
+        t = pd.concat([self.bench_ret, self.ret], axis=1)
 
         # Betas vector
         hist_covs = np.array(t.cov().iloc[0])
@@ -203,8 +213,23 @@ class PortfolioOpt:
 
 
 
+    def amount_needed(self, opt_results):
+        """
+        Function to find the amount of money needed to created optimial portfolio
+        """
 
-    def print_results(self, opt_results, print_zeros=False, percentages=True, shares=True, dollars=True, amount=1000, beta_target=None):
+        amount = 0
+
+        last_price = self.data.iloc[-1].values
+
+        for price, weight in zip(last_price, opt_results['x'].round(4)):
+
+            if weight != 0:
+                amount += price/weight
+
+        return round(amount, 2)
+
+    def print_results(self, opt_results, print_zeros=False, percentages=True, shares=True, dollars=True, amount_needed=True, amount=1000, beta_target=None):
         """
         A function to print the results of the optimization.
         """
@@ -214,18 +239,18 @@ class PortfolioOpt:
         print(f"Data end:" + " "*(self.max_str-len("Data end:")) + f"{self.end}\n")
 
         print("\nPerformance (Annualized)")
-        print(f"Returns:" + " "*(self.max_str-len("Returns:")) + f"{round(self._get_ret_vol_sr(opt_results['x'])[0],3)}")
+        print(f"Expected Returns:" + " "*(self.max_str-len("Expected Returns:")) + f"{round(self._get_ret_vol_sr(opt_results['x'])[0],3)}")
         print(f"Vol:" + " "*(self.max_str-len("Vol:")) + f"{round(self._get_ret_vol_sr(opt_results['x'])[1],3)}")
         print(f"Sharpe ratio:" + " "*(self.max_str-len("Sharpe ratio:")) + f"{round(self._get_ret_vol_sr(opt_results['x'])[2],3)}")
         if beta_target is not None:
             print(f"Beta Target:" + " "*(self.max_str-len("Beta Target:")) + f"{beta_target}")
 
         print(f"\nBenchmark ({self.benchmark})")
-        print(f"Returns:" + " "*(self.max_str-len("Returns:")) + f"{self.bench_er}")
+        print(f"Expected Returns:" + " "*(self.max_str-len("Expected Returns:")) + f"{self.bench_er}")
         print(f"Vol:" + " "*(self.max_str-len(f"Vol:")) + f"{self.bench_vol}")
         print(f"Sharpe ratio:" + " "*(self.max_str-len(f"Sharpe ratio:")) + f"{self.bench_sharpe}")
-
-
+        print(f"Real returns:" + " "*(self.max_str-len("Real returns:")) + f"{self.bench_ret.sum().round(3)}")
+        print(f"Real Sharpe ratio:" + " "*(self.max_str-len("Real Sharpe ratio:")) + f"{(self.bench_ret.sum()/self.bench_vol).round(3)}")
 
         if percentages:
             print("\n" + "#"*(self.max_str+10))
@@ -272,21 +297,44 @@ class PortfolioOpt:
                 print(f"{v} ({k}):" + " "*space + f"{i}")
 
 
+        if amount_needed:
+
+            print("\n" + "#"*(self.max_str+10))
+            space = self.max_str - len("Amount needed:")
+            print("Amount needed:" + " "*space + f"${self.amount_needed(opt_results)}")
+
+
 
 if __name__ == "__main__":
+    from dateutil.relativedelta import relativedelta
 
     # tickers = ['XAR', 'KBE', 'XBI', 'KCE', 'XHE', 'XHS', 'XHB', 'KIE', 'XWEB', 'XME', 'XES', 'XOP', 'XPH', 'KRE', 'XRT', 'XSD', 'XSW', 'XTL', 'XTN']
-    # tickers = ['XLC', 'XLY', 'XLP', 'XLE', 'XLF', 'XLV', 'XLI', 'XLB', 'XLRE', 'XLK', 'XLU']
+    tickers = ['XLC', 'XLY', 'XLP', 'XLE', 'XLF', 'XLV', 'XLI', 'XLB', 'XLRE', 'XLK', 'XLU']
     # tickers = ["FB", "AAPL", "AMZN", "NFLX", "GOOG"]
     # ssmif = pd.read_csv("ssmif_port.csv", header=None)
     # tickers = ssmif[0].values
 
-    spdr = pd.read_csv("spdr_holdings-all.csv")
-    tickers = spdr['Symbol'].unique()
+    # spdr = pd.read_csv("spdr_holdings-all.csv")
+    # tickers = spdr['Symbol'].unique()
 
-    from dateutil.relativedelta import relativedelta
-    start = str(date.today() - relativedelta(years=3))
+
+    start = str(date.today() - relativedelta(years=10))
     opt = PortfolioOpt(tickers, start=start)
-    t = opt.optimize_portfolio()
+    t = opt.optimize_portfolio(opt_for="returns", print_results=False)
+
+    opt.print_results(t, amount=opt.amount_needed(t))
+
+    # print(t)
+
+    # sectors = []
+    # for i in range(len(tickers)):
+    #     if t['x'].round(2)[i] != 0:
+    #         sectors.append(tickers[i])
+    #
+    # spdr = pd.read_csv("spdr_holdings-all.csv")
+    # tickers = spdr[spdr["Index"].isin(sectors)]['Symbol'].unique()
+    #
+    # opt2 = PortfolioOpt(tickers, start=start)
+    # t = opt2.optimize_portfolio()
     # print(t)
     # opt.print_results(t, amount=180)
