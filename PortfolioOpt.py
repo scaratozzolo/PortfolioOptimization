@@ -48,7 +48,7 @@ class PortfolioOpt:
         self.bench_vol = (self.bench_ret.std() * np.sqrt(252)).round(3)
         self.bench_sharpe = (self.bench_er/self.bench_vol).round(3)
 
-        print(self.bench_ret.sum(), np.exp(self.bench_ret.sum()) - 1)
+        # print(self.bench_ret.sum(), np.exp(self.bench_ret.sum()) - 1)
 
     def refresh_data(self, start=None, end=None):
 
@@ -249,8 +249,8 @@ class PortfolioOpt:
         print(f"Expected Returns:" + " "*(self.max_str-len("Expected Returns:")) + f"{self.bench_er}")
         print(f"Vol:" + " "*(self.max_str-len(f"Vol:")) + f"{self.bench_vol}")
         print(f"Sharpe ratio:" + " "*(self.max_str-len(f"Sharpe ratio:")) + f"{self.bench_sharpe}")
-        print(f"Real returns:" + " "*(self.max_str-len("Real returns:")) + f"{self.bench_ret.sum().round(3)}")
-        print(f"Real Sharpe ratio:" + " "*(self.max_str-len("Real Sharpe ratio:")) + f"{(self.bench_ret.sum()/self.bench_vol).round(3)}")
+        print(f"Real returns:" + " "*(self.max_str-len("Real returns:")) + f"{(np.exp(self.bench_ret.sum()) - 1).round(3)}")
+        print(f"Real Sharpe ratio:" + " "*(self.max_str-len("Real Sharpe ratio:")) + f"{((np.exp(self.bench_ret.sum()) - 1)/self.bench_vol).round(3)}")
 
         if percentages:
             print("\n" + "#"*(self.max_str+10))
@@ -324,17 +324,17 @@ if __name__ == "__main__":
 
     opt.print_results(t, amount=opt.amount_needed(t))
 
-    # print(t)
+    print("\n"*3)
 
-    # sectors = []
-    # for i in range(len(tickers)):
-    #     if t['x'].round(2)[i] != 0:
-    #         sectors.append(tickers[i])
-    #
-    # spdr = pd.read_csv("spdr_holdings-all.csv")
-    # tickers = spdr[spdr["Index"].isin(sectors)]['Symbol'].unique()
-    #
-    # opt2 = PortfolioOpt(tickers, start=start)
-    # t = opt2.optimize_portfolio()
-    # print(t)
+    sectors = []
+    for i in range(len(tickers)):
+        if t['x'].round(2)[i] != 0:
+            sectors.append(tickers[i])
+
+    spdr = pd.read_csv("spdr_holdings-all.csv")
+    tickers = spdr[spdr["Index"].isin(sectors)]['Symbol'].unique()
+
+    opt2 = PortfolioOpt(tickers, start=start)
+    t = opt2.optimize_portfolio(opt_for="returns", print_results=False)
+    opt2.print_results(t, amount=opt.amount_needed(t))
     # opt.print_results(t, amount=180)
