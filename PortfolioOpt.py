@@ -5,7 +5,7 @@ import yfinance as yf
 yf.pdr_override()
 from scipy import optimize
 from datetime import date, timedelta
-
+from dateutil.relativedelta import relativedelta
 
 
 
@@ -34,7 +34,9 @@ class PortfolioOpt:
         str_lengths = [len(f"{v} ({k}):") for k,v in self.tickers.items()]
         self.max_str = max(str_lengths) + 1
 
-        self.data = pdr.get_data_yahoo(list(self.tickers.keys()), start=self.start, end=self.end)["Adj Close"]
+        self.all_data = pdr.get_data_yahoo(list(self.tickers.keys()), start=self.start, end=self.end)["Adj Close"]
+        self.data = self.all_data.iloc[:-21]
+        self.last_month = self.all_data.iloc[-21:]
         # self.ret = self.data.pct_change()
         self.ret = np.log(self.data/self.data.shift(1))
 
@@ -229,21 +231,43 @@ class PortfolioOpt:
 
         return round(amount, 2)
 
+
+    def calc_prev_month(self, opt_results):
+        """
+        Function to calculate the performance of the optimal weights over the previous month.
+        """
+        weights = opt_results['x'].round(3)
+
+        daily_ret = np.log(self.last_month/self.last_month.shift(1))
+        ret = np.sum(daily_ret.sum() * weights)
+        vol = np.sqrt(np.dot(weights.T, np.dot(daily_ret.cov(), weights)))
+        sr = ret/vol
+
+        return np.array([ret, vol, sr]).round(3)
+
+
     def print_results(self, opt_results, print_zeros=False, percentages=True, shares=True, dollars=True, amount_needed=True, amount=1000, beta_target=None):
         """
         A function to print the results of the optimization.
         """
 
 
+
         print(f"Data start:" + " "*(self.max_str-len("Data start:")) + f"{self.start}")
         print(f"Data end:" + " "*(self.max_str-len("Data end:")) + f"{self.end}\n")
 
-        print("\nPerformance (Annualized)")
+        print("\nLookback Performance (Annualized)")
         print(f"Expected Returns:" + " "*(self.max_str-len("Expected Returns:")) + f"{round(self._get_ret_vol_sr(opt_results['x'])[0],3)}")
         print(f"Vol:" + " "*(self.max_str-len("Vol:")) + f"{round(self._get_ret_vol_sr(opt_results['x'])[1],3)}")
         print(f"Sharpe ratio:" + " "*(self.max_str-len("Sharpe ratio:")) + f"{round(self._get_ret_vol_sr(opt_results['x'])[2],3)}")
         if beta_target is not None:
             print(f"Beta Target:" + " "*(self.max_str-len("Beta Target:")) + f"{beta_target}")
+
+        prev_month_data = self.calc_prev_month(opt_results)
+        print("\nLookahead Performance: 21 Days")
+        print(f"Returns:" + " "*(self.max_str-len("Returns:")) + f"{prev_month_data[0]}")
+        print(f"Vol:" + " "*(self.max_str-len("Vol:")) + f"{prev_month_data[1]}")
+        print(f"Sharpe Ratio:" + " "*(self.max_str-len("Sharpe Ratio:")) + f"{prev_month_data[2]}")
 
         print(f"\nBenchmark ({self.benchmark})")
         print(f"Expected Returns:" + " "*(self.max_str-len("Expected Returns:")) + f"{self.bench_er}")
@@ -315,12 +339,18 @@ class PortfolioOpt:
         f.write(f"Data start:" + " "*(self.max_str-len("Data start:")) + f"{self.start}\n")
         f.write(f"Data end:" + " "*(self.max_str-len("Data end:")) + f"{self.end}\n")
 
-        f.write("\nPerformance (Annualized)\n")
+        f.write("\nLookback Performance (Annualized)\n")
         f.write(f"Expected Returns:" + " "*(self.max_str-len("Expected Returns:")) + f"{round(self._get_ret_vol_sr(opt_results['x'])[0],3)}\n")
         f.write(f"Vol:" + " "*(self.max_str-len("Vol:")) + f"{round(self._get_ret_vol_sr(opt_results['x'])[1],3)}\n")
         f.write(f"Sharpe ratio:" + " "*(self.max_str-len("Sharpe ratio:")) + f"{round(self._get_ret_vol_sr(opt_results['x'])[2],3)}\n")
         if beta_target is not None:
             f.write(f"Beta Target:" + " "*(self.max_str-len("Beta Target:")) + f"{beta_target}\n")
+
+        prev_month_data = self.calc_prev_month(opt_results)
+        f.write("\nLookahead Performance: 21 Days\n")
+        f.write(f"Returns:" + " "*(self.max_str-len("Returns:")) + f"{prev_month_data[0]}")
+        f.write(f"Vol:" + " "*(self.max_str-len("Vol:")) + f"{prev_month_data[1]}")
+        f.write(f"Sharpe Ratio:" + " "*(self.max_str-len("Sharpe Ratio:")) + f"{prev_month_data[2]}")
 
         f.write(f"\nBenchmark ({self.benchmark})\n")
         f.write(f"Expected Returns:" + " "*(self.max_str-len("Expected Returns:")) + f"{self.bench_er}\n")
@@ -382,36 +412,40 @@ class PortfolioOpt:
 
 
 if __name__ == "__main__":
-    from dateutil.relativedelta import relativedelta
+
 
     # tickers = ['XAR', 'KBE', 'XBI', 'KCE', 'XHE', 'XHS', 'XHB', 'KIE', 'XWEB', 'XME', 'XES', 'XOP', 'XPH', 'KRE', 'XRT', 'XSD', 'XSW', 'XTL', 'XTN']
-    tickers = ['XLC', 'XLY', 'XLP', 'XLE', 'XLF', 'XLV', 'XLI', 'XLB', 'XLRE', 'XLK', 'XLU']
-    # tickers = ["FB", "AAPL", "AMZN", "NFLX", "GOOG"]
+    # tickers = ['XLC', 'XLY', 'XLP', 'XLE', 'XLF', 'XLV', 'XLI', 'XLB', 'XLRE', 'XLK', 'XLU']
+    tickers = ["RCL", "AAL", "MSFT", "BAC", "SNAP", "AMZN", "KO", "DIS", "COST", "VZ", "AMD", "NVDA", "WMT", "V", "HD", "DPZ", "JBLU", "MDLZ",
+               "TSLA", "WEN", "UPS", "PLUG", "PLTR"]
     # ssmif = pd.read_csv("ssmif_port.csv", header=None)
     # tickers = ssmif[0].values
 
     # spdr = pd.read_csv("spdr_holdings-all.csv")
     # tickers = spdr['Symbol'].unique()
 
+    # watchlist = pd.read_csv("watchlist.csv", header=2)
+    # tickers = watchlist['Symbol'].unique()
 
-    start = str(date.today() - relativedelta(years=2))
+    start = str(date.today() - relativedelta(years=3))
     opt = PortfolioOpt(tickers, start=start)
-    t = opt.optimize_portfolio(print_results=False)
+    t = opt.optimize_portfolio(amount=1400)
+    # opt.save_results("results/3year_industries_sharpe.txt", t)
 
     # opt.save_results("results.txt", t, amount=3000)
 
-    print("\n"*3)
-
-    sectors = []
-    for i in range(len(tickers)):
-        if t['x'].round(2)[i] != 0:
-            sectors.append(tickers[i])
-
-    spdr = pd.read_csv("spdr_holdings-all.csv")
-    tickers = spdr[spdr["Index"].isin(sectors)]['Symbol'].unique()
-
-    opt2 = PortfolioOpt(tickers, start=start)
-    t = opt2.optimize_portfolio(print_results=False)
-    opt2.print_results(t, amount=3000)
-    opt2.save_results("2year_sector_comps_sharpe.txt", t, amount=3000)
+    # print("\n"*3)
+    #
+    # sectors = []
+    # for i in range(len(tickers)):
+    #     if t['x'].round(2)[i] != 0:
+    #         sectors.append(tickers[i])
+    #
+    # spdr = pd.read_csv("spdr_holdings-all.csv")
+    # tickers = spdr[spdr["Index"].isin(sectors)]['Symbol'].unique()
+    #
+    # opt2 = PortfolioOpt(tickers, start=start)
+    # t = opt2.optimize_portfolio(print_results=False)
+    # opt2.print_results(t, amount=3000)
+    # opt2.save_results("2year_sector_comps_sharpe.txt", t, amount=3000)
     # opt.print_results(t, amount=180)
