@@ -11,7 +11,7 @@ from dateutil.relativedelta import relativedelta
 
 class PortfolioOpt:
 
-    def __init__(self, portfolio, start, end=None, benchmark="^GSPC"):
+    def __init__(self, portfolio, start, end=None, lookahead=21, benchmark="^GSPC"):
 
         self.tickers = {}
         tickers_skipped = 0
@@ -30,13 +30,18 @@ class PortfolioOpt:
         else:
             self.end = end
 
+        self.lookahead = lookahead
 
         str_lengths = [len(f"{v} ({k}):") for k,v in self.tickers.items()]
         self.max_str = max(str_lengths) + 1
 
         self.all_data = pdr.get_data_yahoo(list(self.tickers.keys()), start=self.start, end=self.end)["Adj Close"]
-        self.data = self.all_data.iloc[:-21]
-        self.last_month = self.all_data.iloc[-21:]
+        if self.lookahead:
+            self.data = self.all_data.iloc[:-21]
+            self.last_month = self.all_data.iloc[-21:]
+        else:
+            self.data = self.all_data
+            self.last_month = None
         # self.ret = self.data.pct_change()
         self.ret = np.log(self.data/self.data.shift(1))
 
@@ -263,11 +268,12 @@ class PortfolioOpt:
         if beta_target is not None:
             print(f"Beta Target:" + " "*(self.max_str-len("Beta Target:")) + f"{beta_target}")
 
-        prev_month_data = self.calc_prev_month(opt_results)
-        print("\nLookahead Performance: 21 Days")
-        print(f"Returns:" + " "*(self.max_str-len("Returns:")) + f"{prev_month_data[0]}")
-        print(f"Vol:" + " "*(self.max_str-len("Vol:")) + f"{prev_month_data[1]}")
-        print(f"Sharpe Ratio:" + " "*(self.max_str-len("Sharpe Ratio:")) + f"{prev_month_data[2]}")
+        if self.lookahead:
+            prev_month_data = self.calc_prev_month(opt_results)
+            print(f"\nLookahead Performance: {self.lookahead} Days")
+            print(f"Returns:" + " "*(self.max_str-len("Returns:")) + f"{prev_month_data[0]}")
+            print(f"Vol:" + " "*(self.max_str-len("Vol:")) + f"{prev_month_data[1]}")
+            print(f"Sharpe Ratio:" + " "*(self.max_str-len("Sharpe Ratio:")) + f"{prev_month_data[2]}")
 
         print(f"\nBenchmark ({self.benchmark})")
         print(f"Expected Returns:" + " "*(self.max_str-len("Expected Returns:")) + f"{self.bench_er}")
@@ -346,8 +352,9 @@ class PortfolioOpt:
         if beta_target is not None:
             f.write(f"Beta Target:" + " "*(self.max_str-len("Beta Target:")) + f"{beta_target}\n")
 
-        prev_month_data = self.calc_prev_month(opt_results)
-        f.write("\nLookahead Performance: 21 Days\n")
+        if self.lookahead:
+            prev_month_data = self.calc_prev_month(opt_results)
+            f.write(f"\nLookahead Performance: {self.lookahead} Days")
         f.write(f"Returns:" + " "*(self.max_str-len("Returns:")) + f"{prev_month_data[0]}")
         f.write(f"Vol:" + " "*(self.max_str-len("Vol:")) + f"{prev_month_data[1]}")
         f.write(f"Sharpe Ratio:" + " "*(self.max_str-len("Sharpe Ratio:")) + f"{prev_month_data[2]}")
@@ -416,8 +423,9 @@ if __name__ == "__main__":
 
     # tickers = ['XAR', 'KBE', 'XBI', 'KCE', 'XHE', 'XHS', 'XHB', 'KIE', 'XWEB', 'XME', 'XES', 'XOP', 'XPH', 'KRE', 'XRT', 'XSD', 'XSW', 'XTL', 'XTN']
     # tickers = ['XLC', 'XLY', 'XLP', 'XLE', 'XLF', 'XLV', 'XLI', 'XLB', 'XLRE', 'XLK', 'XLU']
-    tickers = ["RCL", "AAL", "MSFT", "BAC", "SNAP", "AMZN", "KO", "DIS", "COST", "VZ", "AMD", "NVDA", "WMT", "V", "HD", "DPZ", "JBLU", "MDLZ",
-               "TSLA", "WEN", "UPS", "PLUG", "PLTR"]
+    # tickers = ["RCL", "AAL", "MSFT", "BAC", "SNAP", "AMZN", "KO", "DIS", "COST", "VZ", "AMD", "NVDA", "WMT", "V", "HD", "DPZ", "JBLU", "MDLZ",
+    #            "TSLA", "WEN", "UPS", "PLUG", "PLTR", "SNE"]
+    tickers = ["VOO", "IJH", "IJR", "IXUS"]
     # ssmif = pd.read_csv("ssmif_port.csv", header=None)
     # tickers = ssmif[0].values
 
@@ -428,8 +436,13 @@ if __name__ == "__main__":
     # tickers = watchlist['Symbol'].unique()
 
     start = str(date.today() - relativedelta(years=3))
-    opt = PortfolioOpt(tickers, start=start)
-    t = opt.optimize_portfolio(amount=1400)
+    # opt = PortfolioOpt(tickers, start=start)
+    # t = opt.optimize_portfolio(opt_for="sharpe", amount=1500)
+    # print(t)
+
+    opt = PortfolioOpt(tickers, lookahead=0, start=start)
+    t = opt.optimize_portfolio(opt_for="sharpe", amount=1500)
+    print(t)
     # opt.save_results("results/3year_industries_sharpe.txt", t)
 
     # opt.save_results("results.txt", t, amount=3000)
