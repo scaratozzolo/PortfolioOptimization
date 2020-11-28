@@ -227,7 +227,10 @@ class PortfolioOpt:
 
         amount = 0
 
-        last_price = self.data.iloc[-1].values
+        if self.lookahead:
+            last_price = self.last_month.iloc[-1].values
+        else:
+            last_price = self.data.iloc[-1].values
 
         for price, weight in zip(last_price, opt_results['x'].round(4)):
 
@@ -436,13 +439,13 @@ if __name__ == "__main__":
     # tickers = watchlist['Symbol'].unique()
 
     start = str(date.today() - relativedelta(years=3))
-    # opt = PortfolioOpt(tickers, start=start)
-    # t = opt.optimize_portfolio(opt_for="sharpe", amount=1500)
+    opt = PortfolioOpt(tickers, start=start)
+    t = opt.optimize_portfolio(opt_for="sharpe", amount=1500)
     # print(t)
 
     opt = PortfolioOpt(tickers, lookahead=0, start=start)
     t = opt.optimize_portfolio(opt_for="sharpe", amount=1500)
-    print(t)
+
     # opt.save_results("results/3year_industries_sharpe.txt", t)
 
     # opt.save_results("results.txt", t, amount=3000)
